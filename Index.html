@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Spider Voyage - Entertainment Hub</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div class="background-web"></div>
+    
+    <!-- Header -->
+    <header class="header">
+        <div class="header-content">
+            <div class="logo">
+                <span class="spider-icon">🕷️</span>
+                <h1>Spider Voyage</h1>
+            </div>
+            <nav class="nav">
+                <ul>
+                    <li><a href="#home" class="nav-link active">Home</a></li>
+                    <li><a href="#movies" class="nav-link">Movies</a></li>
+                    <li><a href="#trending" class="nav-link">Trending</a></li>
+                    <li><a href="#about" class="nav-link">About</a></li>
+                </ul>
+            </nav>
+        </div>
+    </header>
+
+    <!-- Hero Section -->
+    <section class="hero">
+        <div class="hero-content">
+            <h2>Explore the Web of Entertainment</h2>
+            <p>Discover movies, ratings, and information across the web</p>
+            <div class="search-container">
+                <input type="text" id="searchInput" placeholder="Search movies...">
+                <button id="searchBtn">Search</button>
+            </div>
+        </div>
+    </section>
+
+    <!-- Movies Container -->
+    <section class="movies-section" id="movies">
+        <h2>Popular Movies</h2>
+        <div class="movies-grid" id="moviesGrid">
+            <!-- Movies will be loaded here by JavaScript -->
+        </div>
+    </section>
+
+    <!-- Movie Detail Modal -->
+    <div id="movieModal" class="modal">
+        <div class="modal-content">
+            <span class="close">&times;</span>
+            <div id="modalBody"></div>
+        </div>
+    </div>
+
+    <!-- Footer -->
+    <footer class="footer">
+        <p>&copy; 2026 Spider Voyage. Powered by TMDB API.</p>
+        <p>Movie data provided by The Movie Database (TMDB)</p>
+    </footer>
+
+    <script src="script.js"></script>
+</body>
+</html>
