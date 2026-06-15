@@ -1,8 +1,8 @@
 const TMDB_API_KEY = '00abfeff5aca77b5e8ab34f08bd95109';
 const TMDB_BASE_URL = 'https://api.themoviedb.org/3';
-const IMAGE_BASE_URL = 'https://image.tmdb.org/t/p/w500';
-// Use imgix as a reliable image proxy
+const INTERNET_ARCHIVE_API = 'https://archive.org/advancedsearch.php';
 const IMAGE_PROXY = 'https://images.weserv.nl/?url=';
+const IMAGE_BASE_URL = 'https://image.tmdb.org/t/p/w500';
 
 // DOM Elements
 const searchInput = document.getElementById('searchInput');
@@ -10,6 +10,15 @@ const searchBtn = document.getElementById('searchBtn');
 const moviesGrid = document.getElementById('moviesGrid');
 const modal = document.getElementById('movieModal');
 const closeBtn = document.querySelector('.close');
+const moviePlayer = document.getElementById('moviePlayer');
+const videoSource = document.getElementById('videoSource');
+const playerTitle = document.getElementById('playerTitle');
+const playerDescription = document.getElementById('playerDescription');
+const backBtn = document.getElementById('backBtn');
+const fullscreenBtn = document.getElementById('fullscreenBtn');
+
+let currentMovie = null;
+let publicDomainMovies = [];
 
 // Search functionality
 searchBtn.addEventListener('click', searchMovies);
@@ -17,21 +26,35 @@ searchInput.addEventListener('keypress', (e) => {
     if (e.key === 'Enter') searchMovies();
 });
 
-// Load popular movies on page load
-window.addEventListener('load', () => {
-    loadPopularMovies();
+// Player controls
+backBtn.addEventListener('click', () => {
+    document.querySelector('.watch-section').scrollIntoView({ behavior: 'smooth' });
+    moviePlayer.pause();
 });
 
-async function loadPopularMovies() {
+fullscreenBtn.addEventListener('click', () => {
+    if (moviePlayer.requestFullscreen) {
+        moviePlayer.requestFullscreen();
+    }
+});
+
+// Load public domain movies on page load
+window.addEventListener('load', () => {
+    loadPublicDomainMovies();
+});
+
+async function loadPublicDomainMovies() {
     try {
+        const query = 'collection:community_texts AND mediatype:movies';
         const response = await fetch(
-            `${TMDB_BASE_URL}/movie/popular?api_key=${TMDB_API_KEY}&language=en-US&page=1`
+            `${INTERNET_ARCHIVE_API}?q=${encodeURIComponent(query)}&fl=identifier,title,description,publicdate&output=json&rows=30`
         );
         const data = await response.json();
-        displayMovies(data.results || []);
+        publicDomainMovies = data.response.docs || [];
+        displayMovies(publicDomainMovies);
     } catch (error) {
         console.error('Error loading movies:', error);
-        moviesGrid.innerHTML = '<p style="color: #4dd0e1; text-align: center; padding: 2rem;">Error loading movies. Please check your API key.</p>';
+        moviesGrid.innerHTML = '<p style="color: #4dd0e1; text-align: center; padding: 2rem;">Error loading movies. Please try again.</p>';
     }
 }
 
@@ -40,22 +63,21 @@ async function searchMovies() {
     if (!query) return;
 
     try {
+        const searchQuery = `${query} AND collection:community_texts AND mediatype:movies`;
         const response = await fetch(
-            `${TMDB_BASE_URL}/search/movie?api_key=${TMDB_API_KEY}&query=${encodeURIComponent(query)}&language=en-US&page=1`
+            `${INTERNET_ARCHIVE_API}?q=${encodeURIComponent(searchQuery)}&fl=identifier,title,description,publicdate&output=json&rows=30`
         );
         const data = await response.json();
-        displayMovies(data.results || []);
+        displayMovies(data.response.docs || []);
     } catch (error) {
         console.error('Error searching movies:', error);
         moviesGrid.innerHTML = '<p style="color: #4dd0e1; text-align: center; padding: 2rem;">Error searching movies. Please try again.</p>';
     }
 }
 
-function getProxiedImageUrl(posterPath) {
-    if (!posterPath) return null;
-    const imageUrl = `${IMAGE_BASE_URL}${posterPath}`;
-    // Use the proxy to load images
-    return `${IMAGE_PROXY}${encodeURIComponent(imageUrl)}&w=500&h=750&fit=cover`;
+function getProxiedImageUrl(url) {
+    if (!url) return null;
+    return `${IMAGE_PROXY}${encodeURIComponent(url)}&w=500&h=750&fit=cover`;
 }
 
 function displayMovies(movies) {
@@ -70,23 +92,18 @@ function displayMovies(movies) {
         const movieCard = document.createElement('div');
         movieCard.className = 'movie-card';
         
-        const posterUrl = getProxiedImageUrl(movie.poster_path);
-        const releaseYear = movie.release_date 
-            ? new Date(movie.release_date).getFullYear()
-            : 'N/A';
-
+        const title = movie.title || 'Unknown Title';
+        const year = movie.publicdate ? new Date(movie.publicdate).getFullYear() : 'N/A';
         const placeholderGradient = 'linear-gradient(135deg, #0d47a1, #00838f)';
 
         movieCard.innerHTML = `
             <div class="movie-poster" style="background: ${placeholderGradient}; display: flex; align-items: center; justify-content: center;">
-                ${posterUrl 
-                    ? `<img src="${posterUrl}" alt="${movie.title}" loading="lazy" style="width: 100%; height: 100%; object-fit: cover;">`
-                    : '<span style="font-size: 3rem;">🎬</span>'}
+                <span style="font-size: 3rem;">🎬</span>
             </div>
             <div class="movie-info">
-                <div class="movie-title">${movie.title || 'Unknown Title'}</div>
-                <div class="movie-rating">⭐ ${movie.vote_average ? (movie.vote_average / 2).toFixed(1) : 'N/A'}/5</div>
-                <div class="movie-year">${releaseYear}</div>
+                <div class="movie-title">${title}</div>
+                <div class="movie-rating">📺 Public Domain</div>
+                <div class="movie-year">${year}</div>
             </div>
         `;
         
@@ -96,32 +113,69 @@ function displayMovies(movies) {
 }
 
 function showMovieDetails(movie) {
+    currentMovie = movie;
     const modalBody = document.getElementById('modalBody');
-    const posterUrl = getProxiedImageUrl(movie.poster_path);
-    const releaseYear = movie.release_date 
-        ? new Date(movie.release_date).getFullYear()
-        : 'N/A';
+    const title = movie.title || 'Unknown Title';
+    const year = movie.publicdate ? new Date(movie.publicdate).getFullYear() : 'N/A';
+    const description = movie.description || 'No description available.';
 
     const placeholderGradient = 'linear-gradient(135deg, #0d47a1, #00838f)';
 
     modalBody.innerHTML = `
         <div class="modal-detail">
-            <div class="modal-poster" style="background: ${placeholderGradient}; display: flex; align-items: center; justify-content: center;">
-                ${posterUrl 
-                    ? `<img src="${posterUrl}" alt="${movie.title}" style="width:100%; height:100%; object-fit:cover; border-radius:10px;">`
-                    : '<span style="font-size: 2rem;">🎬</span>'}
+            <div class="modal-poster" style="background: ${placeholderGradient};">
+                <span style="font-size: 2rem;">🎬</span>
             </div>
             <div class="modal-info">
-                <h2>${movie.title || 'Unknown Title'}</h2>
-                <p><strong>Release Date:</strong> ${movie.release_date || 'N/A'}</p>
-                <div class="modal-rating">⭐ Rating: ${movie.vote_average ? (movie.vote_average / 2).toFixed(1) : 'N/A'}/5</div>
-                <p><strong>Overview:</strong></p>
-                <p>${movie.overview || 'No description available.'}</p>
-                <p><strong>Popularity:</strong> ${movie.popularity ? movie.popularity.toFixed(0) : 'N/A'}</p>
+                <h2>${title}</h2>
+                <p><strong>Year:</strong> ${year}</p>
+                <p><strong>Source:</strong> Internet Archive</p>
+                <p><strong>Description:</strong></p>
+                <p>${description.substring(0, 200)}...</p>
+                <button class="modal-watch-btn" onclick="playMovie('${movie.identifier}')">▶ Watch Now</button>
             </div>
         </div>
     `;
     modal.style.display = 'block';
+}
+
+async function playMovie(identifier) {
+    modal.style.display = 'none';
+    
+    try {
+        // Fetch movie metadata from Internet Archive
+        const response = await fetch(`https://archive.org/metadata/${identifier}`);
+        const data = await response.json();
+        
+        // Find video file
+        const files = data.files || {};
+        let videoFile = null;
+        
+        for (const [filename, file] of Object.entries(files)) {
+            if (filename.match(/\.(mp4|webm|ogv)$/i) && file.format && file.format.includes('Video')) {
+                videoFile = file;
+                break;
+            }
+        }
+        
+        if (videoFile) {
+            const videoUrl = `https://archive.org/download/${identifier}/${Object.keys(files).find(k => files[k] === videoFile)}`;
+            videoSource.src = videoUrl;
+            playerTitle.textContent = currentMovie.title || 'Now Playing';
+            playerDescription.textContent = (currentMovie.description || '').substring(0, 300);
+            
+            moviePlayer.load();
+            moviePlayer.play();
+            
+            // Scroll to player
+            document.querySelector('.watch-section').scrollIntoView({ behavior: 'smooth' });
+        } else {
+            alert('Video file not found. This title may not have a playable version.');
+        }
+    } catch (error) {
+        console.error('Error playing movie:', error);
+        alert('Error loading video. Please try another movie.');
+    }
 }
 
 closeBtn.addEventListener('click', () => {
